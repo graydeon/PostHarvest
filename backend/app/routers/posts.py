@@ -1,7 +1,7 @@
 import sqlite3
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
 from app.models import (
     CategoryValueResponse,
@@ -61,7 +61,7 @@ def _row_to_post(row: dict, db: sqlite3.Connection) -> PostResponse:
 
 
 @router.post("", status_code=201)
-def create_post(post: PostCreate, request: Request) -> PostResponse:
+def create_post(post: PostCreate, request: Request, background_tasks: BackgroundTasks) -> PostResponse:
     db = request.app.state.db
     db.row_factory = sqlite3.Row
 
@@ -94,19 +94,10 @@ def create_post(post: PostCreate, request: Request) -> PostResponse:
 
     db.commit()
 
-    # Trigger background media download
-    import asyncio
+    # Download media in background
     from app.media import download_media_for_post
-
     media_dir = request.app.state.media_dir
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            loop.create_task(download_media_for_post(post_id, post.tweet_id, db, media_dir))
-        else:
-            asyncio.run(download_media_for_post(post_id, post.tweet_id, db, media_dir))
-    except RuntimeError:
-        pass  # No event loop — skip async download (happens in sync test client)
+    background_tasks.add_task(download_media_for_post, post_id, post.tweet_id, db, media_dir)
 
     row = db.execute("SELECT * FROM posts WHERE id = ?", (post_id,)).fetchone()
     return _row_to_post(row, db)
