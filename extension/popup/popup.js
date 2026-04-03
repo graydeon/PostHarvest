@@ -9,19 +9,25 @@ dashboardLink.addEventListener("click", (e) => {
   browser.tabs.create({ url: dashboardLink.href });
 });
 
-browser.runtime.sendMessage({ type: "check-health" }, (resp) => {
-  if (resp && resp.connected) {
-    statusEl.classList.remove("disconnected");
-    statusEl.classList.add("connected");
-    statusText.textContent = "Backend connected";
+async function init() {
+  try {
+    const resp = await browser.runtime.sendMessage({ type: "check-health" });
+    if (resp && resp.connected) {
+      statusEl.classList.remove("disconnected");
+      statusEl.classList.add("connected");
+      statusText.textContent = "Backend connected";
 
-    browser.runtime.sendMessage({ type: "get-stats" }, (statsResp) => {
+      const statsResp = await browser.runtime.sendMessage({ type: "get-stats" });
       if (statsResp && statsResp.ok) {
         statsEl.classList.remove("hidden");
         totalPosts.textContent = statsResp.stats.total_posts;
       }
-    });
-  } else {
+    } else {
+      statusText.textContent = "Backend offline";
+    }
+  } catch (err) {
     statusText.textContent = "Backend offline";
   }
-});
+}
+
+init();
