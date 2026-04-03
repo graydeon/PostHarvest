@@ -62,7 +62,7 @@ _DEFAULT_CATEGORIES = {
 
 def init_db(db_path: str) -> sqlite3.Connection:
     """Initialize the database: create tables and seed default categories."""
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.executescript(_SCHEMA)
