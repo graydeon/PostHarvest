@@ -7,7 +7,7 @@
   "host_permissions": [
     "*://x.com/*",
     "*://twitter.com/*",
-    "http://localhost:8686/*"
+    "http://localhost:8688/*"
   ],
   "action": {
     "default_popup": "popup/popup.html",
