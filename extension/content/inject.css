@@ -1,0 +1,41 @@
+.postharvest-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    padding: 0;
+    transition: background-color 0.2s;
+}
+
+.postharvest-btn:hover {
+    background-color: rgba(29, 155, 240, 0.1);
+}
+
+.postharvest-btn svg {
+    width: 18px;
+    height: 18px;
+    fill: rgb(113, 118, 123);
+    transition: fill 0.2s;
+}
+
+.postharvest-btn:hover svg {
+    fill: rgb(29, 155, 240);
+}
+
+.postharvest-btn.saved svg {
+    fill: rgb(0, 186, 124);
+}
+
+.postharvest-btn.error svg {
+    fill: rgb(244, 33, 46);
+}
+
+.postharvest-btn.saving {
+    opacity: 0.5;
+    pointer-events: none;
+}
