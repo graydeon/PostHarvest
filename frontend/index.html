@@ -8,68 +8,45 @@
 </head>
 <body>
     <nav class="sidebar">
-        <div class="sidebar-inner">
-            <div class="logo">
-                <svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-            </div>
-            <ul class="nav-links">
-                <li>
-                    <a href="#" data-view="feed" class="active">
-                        <svg viewBox="0 0 24 24" width="26" height="26"><path fill="currentColor" d="M21.591 7.146L12.52 1.157c-.316-.21-.724-.21-1.04 0l-9.071 5.99c-.26.173-.409.456-.409.757v13.183c0 .502.418.913.929.913h6.638c.511 0 .929-.41.929-.913v-7.075h3.008v7.075c0 .502.418.913.929.913h6.638c.511 0 .929-.41.929-.913V7.903c0-.301-.158-.584-.409-.757z"/></svg>
-                        <span>Feed</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="#" data-view="categories">
-                        <svg viewBox="0 0 24 24" width="26" height="26"><path fill="currentColor" d="M3 4.5C3 3.12 4.12 2 5.5 2h13C19.88 2 21 3.12 21 4.5v15c0 1.38-1.12 2.5-2.5 2.5h-13C4.12 22 3 20.88 3 19.5v-15zM5.5 4c-.28 0-.5.22-.5.5v15c0 .28.22.5.5.5h13c.28 0 .5-.22.5-.5v-15c0-.28-.22-.5-.5-.5h-13zM16 10H8V8h8v2zm-8 4h8v-2H8v2z"/></svg>
-                        <span>Categories</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="#" data-view="analytics">
-                        <svg viewBox="0 0 24 24" width="26" height="26"><path fill="currentColor" d="M8.75 21V3h2v18h-2zM18.75 21V8.5h2V21h-2zM13.75 21v-6h2v6h-2zM3.75 21v-3h2v3h-2z"/></svg>
-                        <span>Analytics</span>
-                    </a>
-                </li>
-            </ul>
-        </div>
+        <h1 class="logo">PostHarvest</h1>
+        <ul class="nav-links">
+            <li><a href="#" data-view="feed" class="active">Feed</a></li>
+            <li><a href="#" data-view="categories">Categories</a></li>
+            <li><a href="#" data-view="analytics">Analytics</a></li>
+        </ul>
     </nav>
 
     <main class="content">
         <section id="view-feed" class="view active">
-            <div class="view-header sticky">
-                <h2>PostHarvest</h2>
+            <div class="feed-header">
+                <h2>Saved Posts</h2>
+                <div class="feed-controls">
+                    <input type="text" id="search-input" placeholder="Search posts..." class="search-input">
+                    <select id="filter-author" class="filter-select">
+                        <option value="">All Authors</option>
+                    </select>
+                    <select id="filter-tag" class="filter-select">
+                        <option value="">All Tags</option>
+                    </select>
+                </div>
             </div>
-            <div class="search-bar">
-                <svg class="search-icon" viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M10.25 3.75c-3.59 0-6.5 2.91-6.5 6.5s2.91 6.5 6.5 6.5c1.795 0 3.419-.726 4.596-1.904 1.178-1.177 1.904-2.801 1.904-4.596 0-3.59-2.91-6.5-6.5-6.5zm-8.5 6.5c0-4.694 3.806-8.5 8.5-8.5s8.5 3.806 8.5 8.5c0 1.986-.682 3.815-1.824 5.262l4.781 4.781-1.414 1.414-4.781-4.781c-1.447 1.142-3.276 1.824-5.262 1.824-4.694 0-8.5-3.806-8.5-8.5z"/></svg>
-                <input type="text" id="search-input" placeholder="Search posts">
-            </div>
-            <div class="filter-tabs">
-                <select id="filter-author"><option value="">All authors</option></select>
-                <select id="filter-tag"><option value="">All tags</option></select>
-            </div>
-            <div id="posts-list"></div>
+            <div id="posts-list" class="posts-list"></div>
         </section>
 
         <section id="view-detail" class="view">
-            <div class="view-header sticky">
-                <button id="back-to-feed" class="back-btn">
-                    <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M7.414 13l5.043 5.04-1.414 1.42L3.586 12l7.457-7.46 1.414 1.42L7.414 11H21v2H7.414z"/></svg>
-                </button>
-                <h2>Post</h2>
-            </div>
+            <button id="back-to-feed" class="back-btn">&larr; Back to Feed</button>
             <div id="post-detail"></div>
         </section>
 
         <section id="view-categories" class="view">
-            <div class="view-header sticky"><h2>Categories & Tags</h2></div>
+            <h2>Categories & Tags</h2>
             <div id="categories-panel"></div>
-            <div class="section-label">Tags</div>
+            <h3 style="margin-top:24px;">Tags</h3>
             <div id="tags-cloud"></div>
         </section>
 
         <section id="view-analytics" class="view">
-            <div class="view-header sticky"><h2>Analytics</h2></div>
+            <h2>Analytics</h2>
             <div id="analytics-panel"></div>
         </section>
     </main>
