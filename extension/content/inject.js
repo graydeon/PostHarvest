@@ -35,49 +35,25 @@
   // We look for the article content area which contains the rendered rich text.
 
   function scrapeArticleBody() {
-    // X article body is typically in a div with data-testid="tweetText" that's
-    // NOT inside an article[data-testid="tweet"] — or in a rich text container.
-    // We also look for the note/article content which X renders as prose below the tweet.
+    // X long-form articles use these specific data-testid attributes:
+    // - twitterArticleRichTextView: the rich text content of the article
+    // - longformRichTextComponent: the inner rich text component
+    // - twitterArticleReadView: the full article read view container
 
-    // Strategy: grab all visible text content between the tweet header and the
-    // bottom action bar. Look for common article containers.
-    const selectors = [
-      '[data-testid="article-body"]',
-      '[data-testid="noteText"]',
-      'div[data-testid="tweetText"]',
-      // Fallback: X sometimes uses a plain div structure for article content
-      'article + div [lang]',
-    ];
-
-    let fullText = "";
-    for (const sel of selectors) {
-      const els = document.querySelectorAll(sel);
-      if (els.length > 0) {
-        fullText = Array.from(els).map((el) => el.innerText.trim()).join("\n\n");
-        if (fullText.length > 200) break; // Found substantial content
-      }
+    // Try most specific first
+    const richText = document.querySelector('[data-testid="twitterArticleRichTextView"]')
+      || document.querySelector('[data-testid="longformRichTextComponent"]');
+    if (richText) {
+      return richText.innerText.trim();
     }
 
-    // If selectors didn't get enough, try the main content column approach:
-    // On article pages, the primary column has all the content
-    if (fullText.length < 200) {
-      const primaryColumn = document.querySelector('[data-testid="primaryColumn"]');
-      if (primaryColumn) {
-        // Get all text blocks that look like article content (paragraphs, not UI chrome)
-        const textBlocks = primaryColumn.querySelectorAll(
-          'div[dir="auto"][lang], div[data-testid="tweetText"], span[data-testid="tweetText"]'
-        );
-        if (textBlocks.length > 0) {
-          const collected = Array.from(textBlocks)
-            .map((el) => el.innerText.trim())
-            .filter((t) => t.length > 0);
-          const joined = collected.join("\n\n");
-          if (joined.length > fullText.length) fullText = joined;
-        }
-      }
+    // Fallback: the full read view container (includes some chrome but has all text)
+    const readView = document.querySelector('[data-testid="twitterArticleReadView"]');
+    if (readView) {
+      return readView.innerText.trim();
     }
 
-    return fullText;
+    return "";
   }
 
   // ── Standard tweet scraper ──
@@ -209,6 +185,15 @@
     btn.classList.add("saving");
     const data = scrapeTweet(article);
 
+    // Debug: log what we scraped to browser console
+    console.log("[PostHarvest] Scraped data:", {
+      tweet_id: data.tweet_id,
+      text_length: data.text.length,
+      text_preview: data.text.substring(0, 200),
+      media_count: data.media_urls.length,
+      isArticlePage: isArticlePage(),
+    });
+
     if (!data.tweet_id) {
       btn.classList.remove("saving");
       btn.classList.add("error");
@@ -266,37 +251,6 @@
     actionBar.appendChild(btn);
   }
 
-  // ── Button injection for article page bottom action bar ──
-  // On article detail pages, there's a separate action bar at the bottom
-  // that's outside the article element. We inject a button there too.
-
-  function injectArticlePageButton() {
-    if (!isArticlePage()) return;
-
-    // Find all role="group" action bars on the page
-    const groups = document.querySelectorAll('[role="group"]');
-    for (const group of groups) {
-      // Skip ones inside article elements (already handled)
-      if (group.closest('article[data-testid="tweet"]')) continue;
-      // Skip ones we already processed
-      if (group.hasAttribute(PROCESSED_ATTR)) continue;
-      group.setAttribute(PROCESSED_ATTR, "true");
-
-      // Find the nearest article element on the page to use as scrape context
-      const article = document.querySelector('article[data-testid="tweet"]');
-      if (!article) continue;
-
-      const btn = createHarvestButton();
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        saveTweet(article, btn);
-      });
-
-      group.appendChild(btn);
-    }
-  }
-
   // ── Process and observe ──
 
   function processAll() {
@@ -304,7 +258,6 @@
     for (const article of articles) {
       injectButton(article);
     }
-    injectArticlePageButton();
   }
 
   processAll();
