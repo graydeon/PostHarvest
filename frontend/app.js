@@ -62,7 +62,7 @@ async function loadFeed() {
         <span class="metric">${fmtNum(p.views)} views</span>
       </div>
       ${p.tags.length ? `<div class="post-tags">${p.tags.map((t) => `<span class="tag-badge">${esc(t.tag)}</span>`).join("")}</div>` : ""}
-      ${p.media.length ? `<div class="post-media-thumb">${p.media.filter((m) => m.type === "image").slice(0, 3).map((m) => `<img src="${API}/api/posts/${p.id}/media/${esc(m.filename)}" alt="">`).join("")}</div>` : ""}
+      ${p.media.length ? `<div class="post-media">${p.media.filter((m) => m.type === "image").slice(0, 4).map((m) => `<img src="${API}/api/posts/${p.id}/media/${esc(m.filename)}" alt="">`).join("")}</div>` : ""}
     </div>
   `
     )
