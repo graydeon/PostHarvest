@@ -110,13 +110,13 @@ async function loadPostDetail(postId) {
       <span class="metric">${fmtNum(post.views)} views</span>
     </div>
     ${post.media.length ? `<div class="detail-media">${post.media.map((m) => m.type === "image" ? `<img src="${API}/api/posts/${post.id}/media/${esc(m.filename)}" alt="">` : `<video src="${API}/api/posts/${post.id}/media/${esc(m.filename)}" controls></video>`).join("")}</div>` : ""}
-    <h3 style="margin-top:16px;">Notes</h3>
+    <div class="detail-section-title">Notes</div>
     <div class="detail-notes">
-      <textarea id="detail-notes">${esc(post.notes)}</textarea>
+      <textarea id="detail-notes" placeholder="Add research notes...">${esc(post.notes)}</textarea>
     </div>
-    <h3 style="margin-top:12px;">Tags</h3>
+    <div class="detail-section-title">Tags</div>
     <input class="detail-tags-input" id="detail-tags" placeholder="Comma-separated tags" value="${post.tags.map((t) => t.tag).join(", ")}">
-    <h3 style="margin-top:12px;">Categories</h3>
+    <div class="detail-section-title">Categories</div>
     <div id="detail-categories">
       ${allCategories.map((cat) => `
         <div style="margin-top:8px;">
@@ -132,10 +132,19 @@ async function loadPostDetail(postId) {
         </div>
       `).join("")}
     </div>
-    <button class="save-btn" onclick="savePostUpdate(${post.id})">Save Changes</button>
+    <div class="detail-actions">
+      <button class="save-btn" onclick="savePostUpdate(${post.id})">Save Changes</button>
+      <button class="delete-btn" onclick="deletePost(${post.id})">Delete</button>
+    </div>
   `;
 
   showView("detail");
+}
+
+async function deletePost(postId) {
+  if (!confirm("Delete this post?")) return;
+  await fetch(`${API}/api/posts/${postId}`, { method: "DELETE" });
+  showView("feed");
 }
 
 async function savePostUpdate(postId) {
