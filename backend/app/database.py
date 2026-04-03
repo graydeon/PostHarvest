@@ -15,7 +15,22 @@ CREATE TABLE IF NOT EXISTS posts (
     retweets INTEGER DEFAULT 0,
     replies INTEGER DEFAULT 0,
     views INTEGER DEFAULT 0,
-    notes TEXT DEFAULT ''
+    notes TEXT DEFAULT '',
+    sentiment_score REAL,
+    sentiment_label TEXT DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS entities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    text TEXT NOT NULL,
+    label TEXT NOT NULL,
+    UNIQUE(post_id, text, label)
+);
+
+CREATE TABLE IF NOT EXISTS embeddings (
+    post_id INTEGER PRIMARY KEY REFERENCES posts(id) ON DELETE CASCADE,
+    vector BLOB NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS media (

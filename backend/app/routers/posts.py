@@ -54,6 +54,8 @@ def _row_to_post(row: dict, db: sqlite3.Connection) -> PostResponse:
         replies=row["replies"],
         views=row["views"],
         notes=row["notes"] or "",
+        sentiment_score=row["sentiment_score"],
+        sentiment_label=row["sentiment_label"] or "",
         media=media,
         tags=tags,
         categories=categories,
@@ -98,6 +100,9 @@ def create_post(post: PostCreate, request: Request, background_tasks: Background
     from app.media import download_media_for_post
     media_dir = request.app.state.media_dir
     background_tasks.add_task(download_media_for_post, post_id, post.tweet_id, db, media_dir)
+
+    from app.analysis import analyze_post
+    background_tasks.add_task(analyze_post, post_id, db)
 
     row = db.execute("SELECT * FROM posts WHERE id = ?", (post_id,)).fetchone()
     return _row_to_post(row, db)

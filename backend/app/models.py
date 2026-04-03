@@ -76,6 +76,8 @@ class PostResponse(BaseModel):
     replies: int
     views: int
     notes: str
+    sentiment_score: float | None = None
+    sentiment_label: str = ""
     media: list[MediaResponse] = []
     tags: list[TagResponse] = []
     categories: list[CategoryValueResponse] = []
