@@ -31,12 +31,13 @@ def create_app() -> FastAPI:
     )
 
     # Import and register routers
-    from app.routers import categories, posts, stats, tags
+    from app.routers import analysis, categories, posts, stats, tags
 
     app.include_router(posts.router)
     app.include_router(categories.router)
     app.include_router(tags.router)
     app.include_router(stats.router)
+    app.include_router(analysis.router)
 
     @app.get("/api/health")
     def health():
