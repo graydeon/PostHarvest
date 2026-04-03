@@ -13,10 +13,10 @@ cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8686
+python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8688
 ```
 
-Dashboard: http://localhost:8686
+Dashboard: http://localhost:8688
 
 ### Extension
 

@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:8686";
+const API_BASE = "http://localhost:8688";
 
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "check-health") {

@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const API_BASE = "http://localhost:8686";
+  const API_BASE = "http://localhost:8688";
   const PROCESSED_ATTR = "data-postharvest";
 
   const ICON_SVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
