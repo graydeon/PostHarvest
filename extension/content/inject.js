@@ -120,7 +120,8 @@
     }
 
     // Route through background script to avoid CSP/CORS restrictions
-    browser.runtime.sendMessage({ type: "save-post", data: data }, (resp) => {
+    try {
+      const resp = await browser.runtime.sendMessage({ type: "save-post", data: data });
       btn.classList.remove("saving");
 
       if (!resp) {
@@ -141,7 +142,12 @@
         btn.title = "Save failed — is the backend running?";
         setTimeout(() => btn.classList.remove("error"), 3000);
       }
-    });
+    } catch (err) {
+      btn.classList.remove("saving");
+      btn.classList.add("error");
+      btn.title = "Cannot reach PostHarvest backend";
+      setTimeout(() => btn.classList.remove("error"), 3000);
+    }
   }
 
   function injectButton(article) {
