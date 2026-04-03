@@ -38,8 +38,24 @@
       }
     }
 
-    const textEl = article.querySelector('[data-testid="tweetText"]');
-    const text = textEl ? textEl.innerText : "";
+    // Grab all tweetText elements — long articles/threads may have multiple
+    const textEls = article.querySelectorAll('[data-testid="tweetText"]');
+    let text = Array.from(textEls).map((el) => el.innerText).join("\n\n");
+
+    // Check for article/note card — grab its title and preview text too
+    const cardEl = article.querySelector('[data-testid="card.wrapper"]');
+    if (cardEl) {
+      const cardText = cardEl.innerText.trim();
+      if (cardText && !text.includes(cardText)) {
+        text = text ? text + "\n\n" + cardText : cardText;
+      }
+    }
+
+    // If there's a "Show more" indicator, note that text may be truncated
+    const showMore = article.querySelector('[data-testid="tweet-text-show-more-link"]');
+    if (showMore) {
+      text = text + "\n\n[Content truncated — view full post on X]";
+    }
 
     const timeEl = article.querySelector("time");
     let url = "";
