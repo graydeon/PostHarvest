@@ -1,7 +1,6 @@
 (function () {
   "use strict";
 
-  const API_BASE = "http://localhost:8688";
   const PROCESSED_ATTR = "data-postharvest";
 
   const ICON_SVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -120,14 +119,16 @@
       return;
     }
 
-    try {
-      const resp = await fetch(`${API_BASE}/api/posts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
+    // Route through background script to avoid CSP/CORS restrictions
+    browser.runtime.sendMessage({ type: "save-post", data: data }, (resp) => {
       btn.classList.remove("saving");
+
+      if (!resp) {
+        btn.classList.add("error");
+        btn.title = "Cannot reach PostHarvest backend";
+        setTimeout(() => btn.classList.remove("error"), 3000);
+        return;
+      }
 
       if (resp.ok) {
         btn.classList.add("saved");
@@ -140,12 +141,7 @@
         btn.title = "Save failed — is the backend running?";
         setTimeout(() => btn.classList.remove("error"), 3000);
       }
-    } catch (err) {
-      btn.classList.remove("saving");
-      btn.classList.add("error");
-      btn.title = "Cannot reach PostHarvest backend";
-      setTimeout(() => btn.classList.remove("error"), 3000);
-    }
+    });
   }
 
   function injectButton(article) {

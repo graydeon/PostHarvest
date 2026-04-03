@@ -9,6 +9,20 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === "save-post") {
+    fetch(`${API_BASE}/api/posts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(message.data),
+    })
+      .then((resp) => {
+        const status = resp.status;
+        return resp.json().then((data) => sendResponse({ ok: status === 201, status: status, data: data }));
+      })
+      .catch(() => sendResponse(null));
+    return true;
+  }
+
   if (message.type === "get-stats") {
     fetch(`${API_BASE}/api/stats`)
       .then((resp) => resp.json())
