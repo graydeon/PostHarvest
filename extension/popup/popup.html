@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup">
+    <h1>PostHarvest</h1>
+    <div id="status" class="status disconnected">
+      <span class="dot"></span>
+      <span id="status-text">Checking...</span>
+    </div>
+    <div id="stats" class="stats hidden">
+      <div class="stat">
+        <span class="stat-value" id="total-posts">0</span>
+        <span class="stat-label">Posts Saved</span>
+      </div>
+    </div>
+    <a id="dashboard-link" href="http://localhost:8686" class="dashboard-btn">Open Dashboard</a>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
