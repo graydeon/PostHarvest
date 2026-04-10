@@ -14,3 +14,6 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Extension build output
+extension/manifest.json
