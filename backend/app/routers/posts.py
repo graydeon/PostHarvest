@@ -1,7 +1,7 @@
 import sqlite3
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 
 from app.models import (
     CategoryValueResponse,
@@ -119,20 +119,16 @@ def get_post(post_id: int, request: Request) -> PostResponse:
     return _row_to_post(row, db)
 
 
-@router.get("")
-def list_posts(
-    request: Request,
-    author: str | None = None,
-    tag: str | None = None,
-    category_value_id: int | None = None,
-    q: str | None = None,
-    offset: int = 0,
-    limit: int = 50,
-) -> PostListResponse:
-    db = request.app.state.db
-    db.row_factory = sqlite3.Row
-
-    where_clauses = []
+def _build_filter_where(
+    q: str | None,
+    author: str | None,
+    tag: str | None,
+    category_value_ids: list[int],
+    date_from: str | None,
+    date_to: str | None,
+) -> tuple[str, list]:
+    """Build WHERE clause for posts table aliased as p. Returns (where_sql, params)."""
+    where_clauses: list[str] = []
     params: list = []
 
     if author:
@@ -141,16 +137,45 @@ def list_posts(
     if tag:
         where_clauses.append("p.id IN (SELECT post_id FROM tags WHERE tag = ?)")
         params.append(tag)
-    if category_value_id:
-        where_clauses.append("p.id IN (SELECT post_id FROM post_categories WHERE category_value_id = ?)")
-        params.append(category_value_id)
+    for cv_id in category_value_ids:
+        where_clauses.append(
+            "p.id IN (SELECT post_id FROM post_categories WHERE category_value_id = ?)"
+        )
+        params.append(cv_id)
     if q:
-        where_clauses.append("p.text LIKE ?")
-        params.append(f"%{q}%")
+        like_q = f"%{q}%"
+        where_clauses.append(
+            "(p.text LIKE ? OR p.author_handle LIKE ? "
+            "OR p.id IN (SELECT post_id FROM tags WHERE tag LIKE ?))"
+        )
+        params.extend([like_q, like_q, like_q])
+    if date_from:
+        where_clauses.append("p.saved_at >= ?")
+        params.append(date_from)
+    if date_to:
+        where_clauses.append("p.saved_at <= ?")
+        params.append(date_to + "T23:59:59")
 
-    where_sql = " AND ".join(where_clauses)
-    if where_sql:
-        where_sql = "WHERE " + where_sql
+    where_sql = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+    return where_sql, params
+
+
+@router.get("")
+def list_posts(
+    request: Request,
+    author: str | None = None,
+    tag: str | None = None,
+    category_value_id: list[int] = Query(default=[]),
+    q: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    offset: int = 0,
+    limit: int = 25,
+) -> PostListResponse:
+    db = request.app.state.db
+    db.row_factory = sqlite3.Row
+
+    where_sql, params = _build_filter_where(q, author, tag, category_value_id, date_from, date_to)
 
     count_row = db.execute(f"SELECT COUNT(*) as cnt FROM posts p {where_sql}", params).fetchone()
     total = count_row["cnt"]

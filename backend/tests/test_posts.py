@@ -111,3 +111,76 @@ def test_delete_post(client):
     assert resp.status_code == 204
     resp = client.get(f"/api/posts/{post_id}")
     assert resp.status_code == 404
+
+
+def test_search_by_author_handle(client):
+    client.post("/api/posts", json={
+        "tweet_id": "s1", "author_handle": "@findme", "author_name": "Test",
+        "text": "nothing special here", "url": "https://x.com/s1",
+        "likes": 0, "retweets": 0, "replies": 0, "views": 0
+    })
+    r = client.get("/api/posts?q=findme")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["total"] == 1
+    assert data["posts"][0]["author_handle"] == "@findme"
+
+
+def test_search_by_tag(client):
+    r_post = client.post("/api/posts", json={
+        "tweet_id": "s2", "author_handle": "@other", "author_name": "Other",
+        "text": "generic text", "url": "https://x.com/s2",
+        "likes": 0, "retweets": 0, "replies": 0, "views": 0
+    })
+    post_id = r_post.json()["id"]
+    client.put(f"/api/posts/{post_id}", json={"tags": ["growthhack"]})
+    r = client.get("/api/posts?q=growthhack")
+    assert r.status_code == 200
+    assert r.json()["total"] == 1
+
+
+def test_date_range_filter(client):
+    client.post("/api/posts", json={
+        "tweet_id": "d1", "author_handle": "@a", "author_name": "A",
+        "text": "old", "url": "https://x.com/d1",
+        "likes": 0, "retweets": 0, "replies": 0, "views": 0
+    })
+    r = client.get("/api/posts?date_from=2099-01-01&date_to=2099-12-31")
+    assert r.status_code == 200
+    assert r.json()["total"] == 0
+
+
+def test_pagination_offset(client):
+    for i in range(5):
+        client.post("/api/posts", json={
+            "tweet_id": f"p{i}", "author_handle": "@a", "author_name": "A",
+            "text": f"post {i}", "url": f"https://x.com/p{i}",
+            "likes": 0, "retweets": 0, "replies": 0, "views": 0
+        })
+    r = client.get("/api/posts?limit=3&offset=0")
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data["posts"]) == 3
+    assert data["total"] == 5
+    r2 = client.get("/api/posts?limit=3&offset=3")
+    assert r2.json()["total"] == 5
+    assert len(r2.json()["posts"]) == 2
+
+
+def test_multi_category_filter(client):
+    r_cats = client.get("/api/categories")
+    cats = r_cats.json()
+    hook_cat = next(c for c in cats if c["name"] == "Hook Style")
+    question_val = next(v for v in hook_cat["values"] if v["value"] == "Question")
+
+    r_post = client.post("/api/posts", json={
+        "tweet_id": "mc1", "author_handle": "@a", "author_name": "A",
+        "text": "test", "url": "https://x.com/mc1",
+        "likes": 0, "retweets": 0, "replies": 0, "views": 0
+    })
+    post_id = r_post.json()["id"]
+    client.put(f"/api/posts/{post_id}", json={"category_value_ids": [question_val["id"]]})
+
+    r = client.get(f"/api/posts?category_value_id={question_val['id']}")
+    assert r.status_code == 200
+    assert r.json()["total"] == 1
