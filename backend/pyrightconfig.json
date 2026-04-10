@@ -4,5 +4,8 @@
   "pythonVersion": "3.12",
   "include": ["app", "tests"],
   "reportMissingImports": "none",
+  "reportMissingModuleSource": "none",
+  "reportUnusedVariable": "none",
+  "reportUnusedImport": "none",
   "reportAttributeAccessIssue": "none"
 }
