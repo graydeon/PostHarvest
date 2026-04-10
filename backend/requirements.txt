@@ -3,6 +3,7 @@ uvicorn[standard]>=0.32.0
 aiohttp>=3.10.0
 aiofiles>=24.1.0
 httpx>=0.27.0
+yt-dlp>=2024.1.0
 
 # NLP & Analysis
 spacy>=3.7.0
