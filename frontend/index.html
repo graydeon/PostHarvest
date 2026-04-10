@@ -11,43 +11,118 @@
         <h1 class="logo">PostHarvest</h1>
         <ul class="nav-links">
             <li><a href="#" data-view="feed" class="active">Feed</a></li>
-            <li><a href="#" data-view="categories">Categories</a></li>
             <li><a href="#" data-view="analytics">Analytics</a></li>
+            <li><a href="#" data-view="export">Export</a></li>
+            <li><a href="#" data-view="categories">Categories</a></li>
         </ul>
     </nav>
 
     <main class="content">
+        <!-- Feed Tab -->
         <section id="view-feed" class="view active">
             <div class="feed-header">
                 <h2>Saved Posts</h2>
-                <div class="feed-controls">
-                    <input type="text" id="search-input" placeholder="Search posts..." class="search-input">
-                    <select id="filter-author" class="filter-select">
-                        <option value="">All Authors</option>
-                    </select>
-                    <select id="filter-tag" class="filter-select">
-                        <option value="">All Tags</option>
-                    </select>
+                <div class="feed-toolbar">
+                    <input type="text" id="search-input" placeholder="Search posts, authors, tags..." class="search-input">
+                    <button id="filter-toggle" class="toolbar-btn">Filters</button>
                 </div>
+
+                <div id="filter-drawer" class="filter-drawer" hidden>
+                    <div class="filter-row">
+                        <label>Author</label>
+                        <select id="filter-author" class="filter-select">
+                            <option value="">All Authors</option>
+                        </select>
+                    </div>
+                    <div class="filter-row">
+                        <label>Tag</label>
+                        <select id="filter-tag" class="filter-select">
+                            <option value="">All Tags</option>
+                        </select>
+                    </div>
+                    <div class="filter-row">
+                        <label>Hook Style</label>
+                        <select id="filter-hook" class="filter-select" data-cat="Hook Style">
+                            <option value="">Any</option>
+                        </select>
+                    </div>
+                    <div class="filter-row">
+                        <label>Content Type</label>
+                        <select id="filter-content-type" class="filter-select" data-cat="Content Type">
+                            <option value="">Any</option>
+                        </select>
+                    </div>
+                    <div class="filter-row">
+                        <label>Industry</label>
+                        <select id="filter-industry" class="filter-select" data-cat="Industry">
+                            <option value="">Any</option>
+                        </select>
+                    </div>
+                    <div class="filter-row">
+                        <label>From</label>
+                        <input type="date" id="filter-date-from" class="filter-date">
+                        <label>To</label>
+                        <input type="date" id="filter-date-to" class="filter-date">
+                    </div>
+                    <button id="filter-clear" class="clear-btn">Clear Filters</button>
+                </div>
+
+                <div id="active-chips" class="active-chips"></div>
             </div>
+
             <div id="posts-list" class="posts-list"></div>
+            <div id="load-more-container" class="load-more-container" hidden>
+                <button id="load-more-btn" class="load-more-btn">Load more</button>
+            </div>
         </section>
 
+        <!-- Post Detail (overlaid over feed) -->
         <section id="view-detail" class="view">
             <button id="back-to-feed" class="back-btn">&larr; Back to Feed</button>
             <div id="post-detail"></div>
         </section>
 
+        <!-- Analytics Tab -->
+        <section id="view-analytics" class="view">
+            <h2>Analytics</h2>
+            <p class="view-subtitle" id="analytics-filter-note"></p>
+            <div id="analytics-panel"></div>
+        </section>
+
+        <!-- Export Tab -->
+        <section id="view-export" class="view">
+            <h2>Export</h2>
+            <p class="view-subtitle">Download your harvested posts for analysis or injection into an LLM.</p>
+
+            <div class="export-scope-bar">
+                <label>Scope</label>
+                <select id="export-scope" class="filter-select">
+                    <option value="all">All Posts</option>
+                    <option value="filtered">Current Filter</option>
+                    <option value="date">Date Range</option>
+                </select>
+                <span id="export-date-range" hidden>
+                    <input type="date" id="export-date-from" class="filter-date">
+                    <span style="color:var(--text-dim)">&#8594;</span>
+                    <input type="date" id="export-date-to" class="filter-date">
+                </span>
+            </div>
+
+            <div id="export-preview" class="export-preview"></div>
+
+            <div class="export-buttons">
+                <button class="export-btn" onclick="doExport('csv')">Download CSV</button>
+                <button class="export-btn" onclick="doExport('json')">Download JSON</button>
+                <button class="export-btn export-btn-llm" onclick="doExport('llm')">Download LLM JSON</button>
+            </div>
+        </section>
+
+        <!-- Categories Tab -->
         <section id="view-categories" class="view">
-            <h2>Categories & Tags</h2>
+            <h2>Categories &amp; Tags</h2>
             <div id="categories-panel"></div>
             <h3 style="margin-top:24px;">Tags</h3>
             <div id="tags-cloud"></div>
-        </section>
-
-        <section id="view-analytics" class="view">
-            <h2>Analytics</h2>
-            <div id="analytics-panel"></div>
         </section>
     </main>
 

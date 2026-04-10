@@ -1,6 +1,22 @@
 const API = "";
+
+// ── Global state ──
 let allCategories = [];
 let chartInstances = {};
+let filterState = {
+  q: "",
+  author: "",
+  tag: "",
+  hookId: null,
+  contentTypeId: null,
+  industryId: null,
+  dateFrom: "",
+  dateTo: "",
+};
+let feedOffset = 0;
+const PAGE_SIZE = 25;
+let feedTotal = 0;
+let trendDays = 30;
 
 // ── Navigation ──
 
@@ -16,46 +32,191 @@ document.getElementById("back-to-feed").addEventListener("click", () => showView
 function showView(name) {
   document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
   document.getElementById(`view-${name}`).classList.add("active");
-  document.querySelectorAll("[data-view]").forEach((a) => a.classList.toggle("active", a.dataset.view === name));
+  document.querySelectorAll("[data-view]").forEach((a) =>
+    a.classList.toggle("active", a.dataset.view === name)
+  );
 
-  if (name === "feed") loadFeed();
-  if (name === "categories") loadCategories();
+  if (name === "feed") { feedOffset = 0; loadFeed(false); }
   if (name === "analytics") loadAnalytics();
+  if (name === "categories") loadCategories();
+  if (name === "export") refreshExportPreview();
+}
+
+// ── Filter state helpers ──
+
+function buildFilterParams(extra = {}) {
+  const p = new URLSearchParams();
+  if (filterState.q) p.set("q", filterState.q);
+  if (filterState.author) p.set("author", filterState.author);
+  if (filterState.tag) p.set("tag", filterState.tag);
+  if (filterState.hookId) p.append("category_value_id", filterState.hookId);
+  if (filterState.contentTypeId) p.append("category_value_id", filterState.contentTypeId);
+  if (filterState.industryId) p.append("category_value_id", filterState.industryId);
+  if (filterState.dateFrom) p.set("date_from", filterState.dateFrom);
+  if (filterState.dateTo) p.set("date_to", filterState.dateTo);
+  Object.entries(extra).forEach(([k, v]) => p.set(k, v));
+  return p;
+}
+
+function renderChips() {
+  const container = document.getElementById("active-chips");
+  const chips = [];
+
+  if (filterState.q) chips.push({ key: "q", label: `"${filterState.q}"` });
+  if (filterState.author) chips.push({ key: "author", label: `@${filterState.author.replace(/^@/, "")}` });
+  if (filterState.tag) chips.push({ key: "tag", label: `#${filterState.tag}` });
+  if (filterState.dateFrom || filterState.dateTo) {
+    chips.push({ key: "date", label: `${filterState.dateFrom || "…"} → ${filterState.dateTo || "…"}` });
+  }
+
+  [
+    { key: "hookId", catName: "Hook Style" },
+    { key: "contentTypeId", catName: "Content Type" },
+    { key: "industryId", catName: "Industry" },
+  ].forEach(({ key, catName }) => {
+    if (!filterState[key]) return;
+    const cat = allCategories.find((c) => c.name === catName);
+    if (!cat) return;
+    const val = cat.values.find((v) => v.id === filterState[key]);
+    if (val) chips.push({ key, label: `${catName}: ${val.value}` });
+  });
+
+  container.innerHTML = chips
+    .map(
+      (c) =>
+        `<span class="chip">${esc(c.label)}<button class="chip-remove" onclick="removeChip('${c.key}')" title="Remove filter">&#215;</button></span>`
+    )
+    .join("");
+}
+
+function removeChip(key) {
+  if (key === "q") { filterState.q = ""; document.getElementById("search-input").value = ""; }
+  else if (key === "author") { filterState.author = ""; document.getElementById("filter-author").value = ""; }
+  else if (key === "tag") { filterState.tag = ""; document.getElementById("filter-tag").value = ""; }
+  else if (key === "date") {
+    filterState.dateFrom = ""; filterState.dateTo = "";
+    document.getElementById("filter-date-from").value = "";
+    document.getElementById("filter-date-to").value = "";
+  }
+  else if (key === "hookId") { filterState.hookId = null; document.getElementById("filter-hook").value = ""; }
+  else if (key === "contentTypeId") { filterState.contentTypeId = null; document.getElementById("filter-content-type").value = ""; }
+  else if (key === "industryId") { filterState.industryId = null; document.getElementById("filter-industry").value = ""; }
+
+  feedOffset = 0;
+  loadFeed(false);
+  renderChips();
+}
+
+// ── Filter drawer ──
+
+const filterToggle = document.getElementById("filter-toggle");
+const filterDrawer = document.getElementById("filter-drawer");
+
+filterToggle.addEventListener("click", () => {
+  const open = !filterDrawer.hidden;
+  filterDrawer.hidden = open;
+  filterToggle.classList.toggle("active", !open);
+});
+
+document.getElementById("filter-clear").addEventListener("click", () => {
+  filterState = { q: "", author: "", tag: "", hookId: null, contentTypeId: null, industryId: null, dateFrom: "", dateTo: "" };
+  document.getElementById("search-input").value = "";
+  document.getElementById("filter-author").value = "";
+  document.getElementById("filter-tag").value = "";
+  document.getElementById("filter-hook").value = "";
+  document.getElementById("filter-content-type").value = "";
+  document.getElementById("filter-industry").value = "";
+  document.getElementById("filter-date-from").value = "";
+  document.getElementById("filter-date-to").value = "";
+  feedOffset = 0;
+  loadFeed(false);
+  renderChips();
+});
+
+// ── Search (debounced) ──
+
+let searchTimeout;
+document.getElementById("search-input").addEventListener("input", (e) => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    filterState.q = e.target.value.trim();
+    feedOffset = 0;
+    loadFeed(false);
+    renderChips();
+  }, 300);
+});
+
+// ── Filter selects ──
+
+document.getElementById("filter-author").addEventListener("change", (e) => {
+  filterState.author = e.target.value;
+  feedOffset = 0; loadFeed(false); renderChips();
+});
+
+document.getElementById("filter-tag").addEventListener("change", (e) => {
+  filterState.tag = e.target.value;
+  feedOffset = 0; loadFeed(false); renderChips();
+});
+
+document.getElementById("filter-hook").addEventListener("change", (e) => {
+  filterState.hookId = e.target.value ? parseInt(e.target.value) : null;
+  feedOffset = 0; loadFeed(false); renderChips();
+});
+
+document.getElementById("filter-content-type").addEventListener("change", (e) => {
+  filterState.contentTypeId = e.target.value ? parseInt(e.target.value) : null;
+  feedOffset = 0; loadFeed(false); renderChips();
+});
+
+document.getElementById("filter-industry").addEventListener("change", (e) => {
+  filterState.industryId = e.target.value ? parseInt(e.target.value) : null;
+  feedOffset = 0; loadFeed(false); renderChips();
+});
+
+document.getElementById("filter-date-from").addEventListener("change", (e) => {
+  filterState.dateFrom = e.target.value;
+  feedOffset = 0; loadFeed(false); renderChips();
+});
+
+document.getElementById("filter-date-to").addEventListener("change", (e) => {
+  filterState.dateTo = e.target.value;
+  feedOffset = 0; loadFeed(false); renderChips();
+});
+
+// ── Init categories ──
+
+async function initCategories() {
+  const r = await fetch(`${API}/api/categories`);
+  allCategories = await r.json();
+
+  const tagResp = await fetch(`${API}/api/tags`);
+  const tags = await tagResp.json();
+
+  const tagSelect = document.getElementById("filter-tag");
+  tagSelect.innerHTML = '<option value="">All Tags</option>' +
+    tags.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("");
+
+  const catMap = { "Hook Style": "filter-hook", "Content Type": "filter-content-type", "Industry": "filter-industry" };
+  Object.entries(catMap).forEach(([catName, elemId]) => {
+    const cat = allCategories.find((c) => c.name === catName);
+    if (!cat) return;
+    document.getElementById(elemId).innerHTML =
+      '<option value="">Any</option>' +
+      cat.values.map((v) => `<option value="${v.id}">${esc(v.value)}</option>`).join("");
+  });
 }
 
 // ── Feed ──
 
-const searchInput = document.getElementById("search-input");
-const filterAuthor = document.getElementById("filter-author");
-const filterTag = document.getElementById("filter-tag");
-
-let searchTimeout;
-searchInput.addEventListener("input", () => {
-  clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(loadFeed, 300);
-});
-filterAuthor.addEventListener("change", loadFeed);
-filterTag.addEventListener("change", loadFeed);
-
-function sentimentBadge(label) {
-  if (!label) return "";
-  const colors = { positive: "#22c55e", negative: "#ef4444", neutral: "#71767b" };
-  return `<span class="sentiment-badge" style="color:${colors[label] || colors.neutral}">${label}</span>`;
-}
-
-async function loadFeed() {
-  const params = new URLSearchParams();
-  if (searchInput.value) params.set("q", searchInput.value);
-  if (filterAuthor.value) params.set("author", filterAuthor.value);
-  if (filterTag.value) params.set("tag", filterTag.value);
-
+async function loadFeed(append = false) {
+  const params = buildFilterParams({ limit: PAGE_SIZE, offset: feedOffset });
   const resp = await fetch(`${API}/api/posts?${params}`);
   const data = await resp.json();
 
+  feedTotal = data.total;
   const list = document.getElementById("posts-list");
-  list.innerHTML = data.posts
-    .map(
-      (p) => `
+
+  const cards = data.posts.map((p) => `
     <div class="post-card" onclick="loadPostDetail(${p.id})">
       <div class="post-card-header">
         <div>
@@ -75,22 +236,34 @@ async function loadFeed() {
       ${p.tags.length ? `<div class="post-tags">${p.tags.map((t) => `<span class="tag-badge">${esc(t.tag)}</span>`).join("")}</div>` : ""}
       ${p.media.length ? `<div class="post-media">${p.media.filter((m) => m.type === "image").slice(0, 4).map((m) => `<img src="${API}/api/posts/${p.id}/media/${esc(m.filename)}" alt="">`).join("")}</div>` : ""}
     </div>
-  `
-    )
-    .join("");
+  `).join("");
 
-  populateFilters(data.posts);
+  if (append) {
+    list.insertAdjacentHTML("beforeend", cards);
+  } else {
+    list.innerHTML = cards;
+    // Update author dropdown
+    const authors = [...new Set(data.posts.map((p) => p.author_handle))].sort();
+    const authorSelect = document.getElementById("filter-author");
+    const currentAuthor = filterState.author;
+    authorSelect.innerHTML =
+      '<option value="">All Authors</option>' +
+      authors.map((a) => `<option value="${esc(a)}" ${a === currentAuthor ? "selected" : ""}>${esc(a)}</option>`).join("");
+  }
+
+  const loaded = feedOffset + data.posts.length;
+  document.getElementById("load-more-container").hidden = loaded >= feedTotal;
 }
 
-function populateFilters(posts) {
-  const authors = [...new Set(posts.map((p) => p.author_handle))].sort();
-  const currentAuthor = filterAuthor.value;
-  filterAuthor.innerHTML = '<option value="">All Authors</option>' + authors.map((a) => `<option value="${esc(a)}" ${a === currentAuthor ? "selected" : ""}>${esc(a)}</option>`).join("");
+document.getElementById("load-more-btn").addEventListener("click", () => {
+  feedOffset += PAGE_SIZE;
+  loadFeed(true);
+});
 
-  fetch(`${API}/api/tags`).then((r) => r.json()).then((tags) => {
-    const currentTag = filterTag.value;
-    filterTag.innerHTML = '<option value="">All Tags</option>' + tags.map((t) => `<option value="${esc(t)}" ${t === currentTag ? "selected" : ""}>${esc(t)}</option>`).join("");
-  });
+function sentimentBadge(label) {
+  if (!label) return "";
+  const colors = { positive: "#22c55e", negative: "#ef4444", neutral: "#71767b" };
+  return `<span class="sentiment-badge" style="color:${colors[label] || colors.neutral}">${label}</span>`;
 }
 
 // ── Post Detail ──
@@ -111,10 +284,12 @@ async function loadPostDetail(postId) {
     allCategories = await catResp.json();
   }
 
-  const entityColors = { PERSON: "#8b5cf6", ORG: "#3b82f6", PRODUCT: "#f59e0b", GPE: "#10b981", MONEY: "#22c55e", EVENT: "#ec4899", WORK_OF_ART: "#f97316" };
+  const entityColors = {
+    PERSON: "#8b5cf6", ORG: "#3b82f6", PRODUCT: "#f59e0b",
+    GPE: "#10b981", MONEY: "#22c55e", EVENT: "#ec4899", WORK_OF_ART: "#f97316",
+  };
 
-  const detail = document.getElementById("post-detail");
-  detail.innerHTML = `
+  document.getElementById("post-detail").innerHTML = `
     <div class="post-card-header">
       <div>
         <span class="post-author">${esc(post.author_name)}</span>
@@ -203,10 +378,8 @@ async function deletePost(postId) {
 
 async function savePostUpdate(postId) {
   const notes = document.getElementById("detail-notes").value;
-  const tagsRaw = document.getElementById("detail-tags").value;
-  const tags = tagsRaw.split(",").map((t) => t.trim()).filter(Boolean);
-  const checkboxes = document.querySelectorAll("#detail-categories input[type=checkbox]:checked");
-  const categoryValueIds = [...checkboxes].map((cb) => parseInt(cb.value));
+  const tags = document.getElementById("detail-tags").value.split(",").map((t) => t.trim()).filter(Boolean);
+  const categoryValueIds = [...document.querySelectorAll("#detail-categories input[type=checkbox]:checked")].map((cb) => parseInt(cb.value));
 
   await fetch(`${API}/api/posts/${postId}`, {
     method: "PUT",
@@ -220,12 +393,10 @@ async function savePostUpdate(postId) {
 // ── Categories ──
 
 async function loadCategories() {
-  const catResp = await fetch(`${API}/api/categories`);
-  const cats = await catResp.json();
+  const cats = await (await fetch(`${API}/api/categories`)).json();
   allCategories = cats;
 
-  document.getElementById("categories-panel").innerHTML = cats
-    .map((c) => `
+  document.getElementById("categories-panel").innerHTML = cats.map((c) => `
     <div class="category-card">
       <h3>${esc(c.name)}</h3>
       <div class="category-values">
@@ -234,12 +405,11 @@ async function loadCategories() {
     </div>
   `).join("");
 
-  const tagsResp = await fetch(`${API}/api/tags`);
-  const tags = await tagsResp.json();
+  const tags = await (await fetch(`${API}/api/tags`)).json();
   document.getElementById("tags-cloud").innerHTML = `<div class="tags-cloud">${tags.map((t) => `<span class="tag-badge">${esc(t)}</span>`).join("")}</div>`;
 }
 
-// ── Analytics (Chart.js) ──
+// ── Analytics ──
 
 function destroyCharts() {
   Object.values(chartInstances).forEach((c) => c.destroy());
@@ -249,121 +419,126 @@ function destroyCharts() {
 async function loadAnalytics() {
   destroyCharts();
 
-  const [statsResp, clustersResp] = await Promise.all([
-    fetch(`${API}/api/stats`),
-    fetch(`${API}/api/clusters`).catch(() => null),
-  ]);
+  const params = buildFilterParams({ days: trendDays });
+  const data = await (await fetch(`${API}/api/stats/analytics?${params}`)).json();
 
-  const stats = await statsResp.json();
-  const clustersData = clustersResp && clustersResp.ok ? await clustersResp.json() : { clusters: [] };
+  const hasFilters = Object.values(filterState).some((v) => v !== "" && v !== null);
+  document.getElementById("analytics-filter-note").textContent = hasFilters ? "Charts reflect your active feed filters." : "";
 
-  const panel = document.getElementById("analytics-panel");
-  panel.innerHTML = `
-    <div class="stats-grid">
-      <div class="stat-card"><div class="stat-number">${stats.total_posts}</div><div class="stat-label">Total Posts</div></div>
-      <div class="stat-card"><div class="stat-number">${stats.total_authors}</div><div class="stat-label">Authors</div></div>
-      <div class="stat-card"><div class="stat-number">${fmtNum(stats.avg_likes)}</div><div class="stat-label">Avg Likes</div></div>
-      <div class="stat-card"><div class="stat-number">${fmtNum(stats.avg_retweets)}</div><div class="stat-label">Avg Retweets</div></div>
-      <div class="stat-card"><div class="stat-number">${fmtNum(stats.avg_views)}</div><div class="stat-label">Avg Views</div></div>
+  const COLORS = ["#4a9eff", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
+  const axisOpts = {
+    x: { ticks: { color: "#7a7e87" }, grid: { color: "rgba(255,255,255,0.04)" } },
+    y: { ticks: { color: "#7a7e87" }, grid: { color: "rgba(255,255,255,0.04)" } },
+  };
+
+  document.getElementById("analytics-panel").innerHTML = `
+    <div class="chart-grid">
+      <div class="chart-section">
+        <h3>Engagement by Hook Style</h3>
+        <canvas id="chart-hook" height="220"></canvas>
+      </div>
+      <div class="chart-section">
+        <h3>Content Type Mix</h3>
+        <canvas id="chart-content" height="220"></canvas>
+      </div>
     </div>
-
-    ${stats.top_authors.length ? `
+    <div class="chart-grid">
       <div class="chart-section">
-        <h3>Top Authors</h3>
-        <canvas id="chart-authors" height="200"></canvas>
+        <h3>Industry Breakdown</h3>
+        <canvas id="chart-industry" height="220"></canvas>
       </div>
-    ` : ""}
-
-    ${stats.category_distribution.length ? `
       <div class="chart-section">
-        <h3>Category Breakdown</h3>
-        <canvas id="chart-categories" height="200"></canvas>
-      </div>
-    ` : ""}
-
-    ${clustersData.clusters.length ? `
-      <div class="chart-section">
-        <h3>Content Clusters</h3>
-        <div class="clusters-list">
-          ${clustersData.clusters.map((c, i) => `
-            <div class="cluster-card">
-              <div class="cluster-header">Cluster ${i + 1} <span style="color:var(--text-dim)">(${c.posts.length} posts)</span></div>
-              ${c.posts.slice(0, 3).map((p) => `
-                <div class="cluster-post" onclick="loadPostDetail(${p.post_id})">
-                  <span style="color:var(--text-dim);font-size:11px;">${esc(p.author_handle)}</span>
-                  <span style="font-size:12px;">${esc(p.text)}</span>
-                </div>
-              `).join("")}
-              ${c.posts.length > 3 ? `<div style="color:var(--text-dim);font-size:11px;padding:4px 0;">+${c.posts.length - 3} more</div>` : ""}
-            </div>
-          `).join("")}
+        <h3>Harvest Trend</h3>
+        <div class="trend-toggle">
+          ${[7, 30, 90].map((d) => `<button class="trend-btn ${d === trendDays ? "active" : ""}" onclick="setTrendDays(${d})">${d}d</button>`).join("")}
         </div>
+        <canvas id="chart-trend" height="180"></canvas>
       </div>
-    ` : ""}
-
+    </div>
     <div style="margin-top:16px;">
       <button class="save-btn" onclick="analyzeAll()">Analyze All Unprocessed Posts</button>
     </div>
   `;
 
-  // Render charts
-  if (stats.top_authors.length && document.getElementById("chart-authors")) {
-    const ctx = document.getElementById("chart-authors").getContext("2d");
-    chartInstances.authors = new Chart(ctx, {
+  if (data.engagement_by_hook.length) {
+    chartInstances.hook = new Chart(document.getElementById("chart-hook").getContext("2d"), {
       type: "bar",
-      data: {
-        labels: stats.top_authors.map((a) => a.author_handle),
-        datasets: [{
-          label: "Posts",
-          data: stats.top_authors.map((a) => a.count),
-          backgroundColor: "rgba(74, 158, 255, 0.6)",
-          borderColor: "rgba(74, 158, 255, 1)",
-          borderWidth: 1,
-          borderRadius: 4,
-        }],
-      },
-      options: {
-        indexAxis: "y",
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { color: "#7a7e87" }, grid: { color: "rgba(255,255,255,0.04)" } },
-          y: { ticks: { color: "#e4e6ea", font: { size: 12 } }, grid: { display: false } },
-        },
-      },
+      data: { labels: data.engagement_by_hook.map((r) => r.label), datasets: [{ label: "Avg Likes", data: data.engagement_by_hook.map((r) => r.avg_likes), backgroundColor: COLORS[0], borderRadius: 4 }] },
+      options: { responsive: true, indexAxis: "y", plugins: { legend: { display: false } }, scales: axisOpts },
     });
   }
 
-  if (stats.category_distribution.length && document.getElementById("chart-categories")) {
-    const colors = ["#4a9eff", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
-    const ctx = document.getElementById("chart-categories").getContext("2d");
-    chartInstances.categories = new Chart(ctx, {
+  if (data.content_type_mix.length) {
+    chartInstances.content = new Chart(document.getElementById("chart-content").getContext("2d"), {
       type: "doughnut",
-      data: {
-        labels: stats.category_distribution.map((c) => `${c.category}: ${c.value}`),
-        datasets: [{
-          data: stats.category_distribution.map((c) => c.count),
-          backgroundColor: stats.category_distribution.map((_, i) => colors[i % colors.length]),
-          borderWidth: 0,
-        }],
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: {
-            position: "right",
-            labels: { color: "#e4e6ea", font: { size: 12 }, padding: 8 },
-          },
-        },
-      },
+      data: { labels: data.content_type_mix.map((r) => r.label), datasets: [{ data: data.content_type_mix.map((r) => r.count), backgroundColor: COLORS, borderWidth: 0 }] },
+      options: { responsive: true, plugins: { legend: { position: "right", labels: { color: "#e4e6ea", font: { size: 11 }, padding: 8 } } } },
+    });
+  }
+
+  if (data.industry_breakdown.length) {
+    chartInstances.industry = new Chart(document.getElementById("chart-industry").getContext("2d"), {
+      type: "bar",
+      data: { labels: data.industry_breakdown.map((r) => r.label), datasets: [{ label: "Posts", data: data.industry_breakdown.map((r) => r.count), backgroundColor: COLORS[1], borderRadius: 4 }] },
+      options: { responsive: true, indexAxis: "y", plugins: { legend: { display: false } }, scales: axisOpts },
+    });
+  }
+
+  if (data.harvest_trend.length) {
+    chartInstances.trend = new Chart(document.getElementById("chart-trend").getContext("2d"), {
+      type: "line",
+      data: { labels: data.harvest_trend.map((r) => r.date), datasets: [{ label: "Posts", data: data.harvest_trend.map((r) => r.count), borderColor: COLORS[0], backgroundColor: "rgba(74,158,255,0.1)", fill: true, tension: 0.3, pointRadius: 3 }] },
+      options: { responsive: true, plugins: { legend: { display: false } }, scales: axisOpts },
     });
   }
 }
 
+function setTrendDays(days) {
+  trendDays = days;
+  loadAnalytics();
+}
+
 async function analyzeAll() {
-  const resp = await fetch(`${API}/api/analyze-all`, { method: "POST" });
-  const data = await resp.json();
+  const data = await (await fetch(`${API}/api/analyze-all`, { method: "POST" })).json();
   alert(`Queued ${data.count} posts for analysis. Refresh in a moment to see results.`);
+}
+
+// ── Export ──
+
+document.getElementById("export-scope").addEventListener("change", (e) => {
+  document.getElementById("export-date-range").hidden = e.target.value !== "date";
+  refreshExportPreview();
+});
+
+async function refreshExportPreview() {
+  const params = exportParams();
+  params.set("limit", "1");
+  params.set("offset", "0");
+  const data = await (await fetch(`${API}/api/posts?${params}`)).json();
+  document.getElementById("export-preview").textContent = `${data.total} post${data.total !== 1 ? "s" : ""} will be exported`;
+}
+
+function exportParams() {
+  const scope = document.getElementById("export-scope").value;
+  if (scope === "all") return new URLSearchParams();
+  if (scope === "filtered") return buildFilterParams();
+  const p = new URLSearchParams();
+  const from = document.getElementById("export-date-from").value;
+  const to = document.getElementById("export-date-to").value;
+  if (from) p.set("date_from", from);
+  if (to) p.set("date_to", to);
+  return p;
+}
+
+function doExport(format) {
+  const params = exportParams();
+  params.set("format", format);
+  const a = document.createElement("a");
+  a.href = `${API}/api/posts/export?${params}`;
+  a.download = format === "llm" ? "postharvest-llm.json" : `postharvest-export.${format}`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 // ── Helpers ──
@@ -383,8 +558,8 @@ function fmtNum(n) {
 
 function formatDate(iso) {
   if (!iso) return "";
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-loadFeed();
+// ── Init ──
+initCategories().then(() => loadFeed(false));
