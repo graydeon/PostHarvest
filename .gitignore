@@ -17,3 +17,6 @@ Thumbs.db
 
 # Extension build output
 extension/manifest.json
+
+# Internal planning docs (not for public repo)
+docs/superpowers/
