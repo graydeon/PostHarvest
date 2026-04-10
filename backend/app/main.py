@@ -31,8 +31,9 @@ def create_app() -> FastAPI:
     )
 
     # Import and register routers
-    from app.routers import analysis, categories, posts, stats, tags
+    from app.routers import analysis, categories, export, posts, stats, tags
 
+    app.include_router(export.router)
     app.include_router(posts.router)
     app.include_router(categories.router)
     app.include_router(tags.router)
