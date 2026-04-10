@@ -262,8 +262,15 @@
 
   processAll();
 
+  let pendingProcess = false;
   const observer = new MutationObserver(() => {
-    processAll();
+    if (!pendingProcess) {
+      pendingProcess = true;
+      requestAnimationFrame(() => {
+        processAll();
+        pendingProcess = false;
+      });
+    }
   });
 
   observer.observe(document.body, { childList: true, subtree: true });

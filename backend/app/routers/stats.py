@@ -130,7 +130,8 @@ def get_analytics(
     ).fetchall()
 
     # Add a date-range condition for the trend window
-    trend_date_clause = f"DATE(p.saved_at) >= DATE('now', '-{int(days)} days')"
+    trend_date_clause = "DATE(p.saved_at) >= DATE('now', ?)"
+    trend_param = f"-{int(days)} days"
     if where_sql:
         trend_where = where_sql + f" AND {trend_date_clause}"
     else:
@@ -144,7 +145,7 @@ def get_analytics(
         GROUP BY DATE(p.saved_at)
         ORDER BY date ASC
         """,
-        params,
+        params + [trend_param],
     ).fetchall()
 
     return {
