@@ -1,5 +1,6 @@
 import sqlite3
 from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 
@@ -60,6 +61,70 @@ def _row_to_post(row: dict, db: sqlite3.Connection) -> PostResponse:
         tags=tags,
         categories=categories,
     )
+
+
+def _enrich_posts(rows: list, db: sqlite3.Connection) -> list[PostResponse]:
+    """Batch-load media, tags, categories for a list of post rows. 3 queries total."""
+    if not rows:
+        return []
+
+    ids = [r["id"] for r in rows]
+    placeholders = ",".join("?" * len(ids))
+
+    media_rows = db.execute(
+        f"SELECT id, post_id, type, original_url, filename FROM media WHERE post_id IN ({placeholders})",
+        ids,
+    ).fetchall()
+    media_by_post: dict[int, list] = {i: [] for i in ids}
+    for m in media_rows:
+        media_by_post[m["post_id"]].append(
+            MediaResponse(id=m["id"], type=m["type"], original_url=m["original_url"], filename=m["filename"])
+        )
+
+    tag_rows = db.execute(
+        f"SELECT id, post_id, tag FROM tags WHERE post_id IN ({placeholders})",
+        ids,
+    ).fetchall()
+    tags_by_post: dict[int, list] = {i: [] for i in ids}
+    for t in tag_rows:
+        tags_by_post[t["post_id"]].append(TagResponse(id=t["id"], tag=t["tag"]))
+
+    cat_rows = db.execute(
+        f"""
+        SELECT pc.post_id, cv.id, cv.value
+        FROM post_categories pc
+        JOIN category_values cv ON pc.category_value_id = cv.id
+        WHERE pc.post_id IN ({placeholders})
+        """,
+        ids,
+    ).fetchall()
+    cats_by_post: dict[int, list] = {i: [] for i in ids}
+    for c in cat_rows:
+        cats_by_post[c["post_id"]].append(CategoryValueResponse(id=c["id"], value=c["value"]))
+
+    return [
+        PostResponse(
+            id=row["id"],
+            tweet_id=row["tweet_id"],
+            author_handle=row["author_handle"],
+            author_name=row["author_name"],
+            text=row["text"],
+            url=row["url"],
+            posted_at=row["posted_at"],
+            saved_at=row["saved_at"],
+            likes=row["likes"],
+            retweets=row["retweets"],
+            replies=row["replies"],
+            views=row["views"],
+            notes=row["notes"] or "",
+            sentiment_score=row["sentiment_score"],
+            sentiment_label=row["sentiment_label"] or "",
+            media=media_by_post[row["id"]],
+            tags=tags_by_post[row["id"]],
+            categories=cats_by_post[row["id"]],
+        )
+        for row in rows
+    ]
 
 
 @router.post("", status_code=201)
@@ -196,7 +261,7 @@ def list_posts(
         params + [limit, offset],
     ).fetchall()
 
-    posts = [_row_to_post(row, db) for row in rows]
+    posts = _enrich_posts(rows, db)
     return PostListResponse(posts=posts, total=total)
 
 
@@ -233,10 +298,17 @@ def update_post(post_id: int, update: PostUpdate, request: Request) -> PostRespo
 @router.delete("/{post_id}", status_code=204)
 def delete_post(post_id: int, request: Request):
     db = request.app.state.db
+    db.row_factory = sqlite3.Row
 
-    row = db.execute("SELECT id FROM posts WHERE id = ?", (post_id,)).fetchone()
+    row = db.execute("SELECT id, tweet_id FROM posts WHERE id = ?", (post_id,)).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Post not found")
+
+    # Clean up media files on disk before cascade-deleting rows
+    media_dir = Path(request.app.state.media_dir) / row["tweet_id"]
+    if media_dir.exists():
+        import shutil
+        shutil.rmtree(media_dir, ignore_errors=True)
 
     db.execute("DELETE FROM posts WHERE id = ?", (post_id,))
     db.commit()

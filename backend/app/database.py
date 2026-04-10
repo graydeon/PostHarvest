@@ -1,5 +1,9 @@
 import sqlite3
+import threading
 from pathlib import Path
+
+_local = threading.local()
+_db_path: str = ""
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS posts (
@@ -66,6 +70,12 @@ CREATE TABLE IF NOT EXISTS tags (
     tag TEXT NOT NULL,
     UNIQUE(post_id, tag)
 );
+
+CREATE INDEX IF NOT EXISTS idx_posts_saved_at ON posts(saved_at);
+CREATE INDEX IF NOT EXISTS idx_posts_author_handle ON posts(author_handle);
+CREATE INDEX IF NOT EXISTS idx_tags_tag ON tags(tag);
+CREATE INDEX IF NOT EXISTS idx_media_post_id ON media(post_id);
+CREATE INDEX IF NOT EXISTS idx_post_categories_post_id ON post_categories(post_id);
 """
 
 _DEFAULT_CATEGORIES = {
@@ -96,6 +106,22 @@ def init_db(db_path: str) -> sqlite3.Connection:
                 )
     conn.commit()
     return conn
+
+
+def get_thread_connection() -> sqlite3.Connection:
+    """Return a per-thread SQLite connection. Creates one if this thread doesn't have one yet."""
+    if not hasattr(_local, "conn") or _local.conn is None:
+        conn = sqlite3.connect(_db_path, check_same_thread=False)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.row_factory = sqlite3.Row
+        _local.conn = conn
+    return _local.conn
+
+
+def set_db_path(path: str) -> None:
+    global _db_path
+    _db_path = path
 
 
 def get_db_path() -> str:

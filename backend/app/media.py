@@ -13,6 +13,9 @@ def download_media_for_post(post_id: int, tweet_id: str, db: sqlite3.Connection,
     Images/GIFs: httpx.
     Failures are non-fatal — post metadata is already saved.
     """
+    # Use a thread-local connection so background tasks don't share state with the request thread
+    from app.database import get_thread_connection
+    db = get_thread_connection()
     db.row_factory = sqlite3.Row
     rows = db.execute(
         "SELECT id, original_url, type FROM media WHERE post_id = ? AND local_path = ''",

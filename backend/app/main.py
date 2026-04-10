@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.database import get_db_path, get_media_dir, init_db
+from app.database import get_db_path, get_media_dir, init_db, set_db_path
 
 
 def create_app() -> FastAPI:
@@ -17,10 +17,12 @@ def create_app() -> FastAPI:
     Path(media_dir).mkdir(parents=True, exist_ok=True)
 
     conn = init_db(db_path)
+    set_db_path(db_path)
 
     app = FastAPI(title="PostHarvest", version="0.1.0")
 
     app.state.db = conn
+    app.state.db_path = db_path
     app.state.media_dir = media_dir
 
     app.add_middleware(

@@ -163,6 +163,8 @@ def analyze_post(post_id: int, db: sqlite3.Connection):
     """Run full analysis on a post: sentiment, entities, embedding.
     Updates the database directly.
     """
+    from app.database import get_thread_connection
+    db = get_thread_connection()
     db.row_factory = sqlite3.Row
     row = db.execute("SELECT id, text FROM posts WHERE id = ?", (post_id,)).fetchone()
     if not row or not row["text"]:
