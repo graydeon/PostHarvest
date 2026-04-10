@@ -129,21 +129,27 @@ def get_analytics(
         params,
     ).fetchall()
 
+    # Add a date-range condition for the trend window
+    trend_date_clause = f"DATE(p.saved_at) >= DATE('now', '-{int(days)} days')"
+    if where_sql:
+        trend_where = where_sql + f" AND {trend_date_clause}"
+    else:
+        trend_where = f"WHERE {trend_date_clause}"
+
     trend_rows = db.execute(
         f"""
         SELECT DATE(p.saved_at) as date, COUNT(*) as count
         FROM posts p
-        {where_sql}
+        {trend_where}
         GROUP BY DATE(p.saved_at)
-        ORDER BY date DESC
-        LIMIT ?
+        ORDER BY date ASC
         """,
-        params + [days],
+        params,
     ).fetchall()
 
     return {
         "engagement_by_hook": [dict(r) for r in hook_rows],
         "content_type_mix": [dict(r) for r in content_rows],
         "industry_breakdown": [dict(r) for r in industry_rows],
-        "harvest_trend": [dict(r) for r in reversed(trend_rows)],
+        "harvest_trend": [dict(r) for r in trend_rows],
     }

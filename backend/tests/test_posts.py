@@ -167,6 +167,33 @@ def test_pagination_offset(client):
     assert len(r2.json()["posts"]) == 2
 
 
+def test_list_authors(client):
+    """GET /api/posts/authors returns all unique author handles."""
+    client.post("/api/posts", json={
+        "tweet_id": "au1", "author_handle": "@alice", "author_name": "Alice",
+        "text": "test", "url": "https://x.com/au1",
+        "likes": 0, "retweets": 0, "replies": 0, "views": 0
+    })
+    client.post("/api/posts", json={
+        "tweet_id": "au2", "author_handle": "@bob", "author_name": "Bob",
+        "text": "test", "url": "https://x.com/au2",
+        "likes": 0, "retweets": 0, "replies": 0, "views": 0
+    })
+    # Duplicate from @alice — should deduplicate
+    client.post("/api/posts", json={
+        "tweet_id": "au3", "author_handle": "@alice", "author_name": "Alice",
+        "text": "another", "url": "https://x.com/au3",
+        "likes": 0, "retweets": 0, "replies": 0, "views": 0
+    })
+    r = client.get("/api/posts/authors")
+    assert r.status_code == 200
+    authors = r.json()
+    assert isinstance(authors, list)
+    assert "@alice" in authors
+    assert "@bob" in authors
+    assert authors.count("@alice") == 1  # deduplicated
+
+
 def test_multi_category_filter(client):
     r_cats = client.get("/api/categories")
     cats = r_cats.json()

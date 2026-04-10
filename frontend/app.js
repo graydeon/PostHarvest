@@ -204,6 +204,13 @@ async function initCategories() {
       '<option value="">Any</option>' +
       cat.values.map((v) => `<option value="${v.id}">${esc(v.value)}</option>`).join("");
   });
+
+  // Populate author dropdown from all authors (not just current page)
+  const authorsResp = await fetch(`${API}/api/posts/authors`);
+  const authors = await authorsResp.json();
+  const authorSelect = document.getElementById("filter-author");
+  authorSelect.innerHTML = '<option value="">All Authors</option>' +
+    authors.map((a) => `<option value="${esc(a)}">${esc(a)}</option>`).join("");
 }
 
 // ── Feed ──
@@ -242,13 +249,6 @@ async function loadFeed(append = false) {
     list.insertAdjacentHTML("beforeend", cards);
   } else {
     list.innerHTML = cards;
-    // Update author dropdown
-    const authors = [...new Set(data.posts.map((p) => p.author_handle))].sort();
-    const authorSelect = document.getElementById("filter-author");
-    const currentAuthor = filterState.author;
-    authorSelect.innerHTML =
-      '<option value="">All Authors</option>' +
-      authors.map((a) => `<option value="${esc(a)}" ${a === currentAuthor ? "selected" : ""}>${esc(a)}</option>`).join("");
   }
 
   const loaded = feedOffset + data.posts.length;

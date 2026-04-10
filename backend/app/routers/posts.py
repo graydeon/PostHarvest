@@ -108,6 +108,17 @@ def create_post(post: PostCreate, request: Request, background_tasks: Background
     return _row_to_post(row, db)
 
 
+@router.get("/authors")
+def list_authors(request: Request) -> list[str]:
+    """Return all unique author handles, sorted alphabetically."""
+    db = request.app.state.db
+    db.row_factory = sqlite3.Row
+    rows = db.execute(
+        "SELECT DISTINCT author_handle FROM posts ORDER BY author_handle"
+    ).fetchall()
+    return [r["author_handle"] for r in rows]
+
+
 @router.get("/{post_id}")
 def get_post(post_id: int, request: Request) -> PostResponse:
     db = request.app.state.db
@@ -170,7 +181,7 @@ def list_posts(
     date_from: str | None = None,
     date_to: str | None = None,
     offset: int = 0,
-    limit: int = 25,
+    limit: int = Query(default=25, ge=1, le=500),
 ) -> PostListResponse:
     db = request.app.state.db
     db.row_factory = sqlite3.Row
