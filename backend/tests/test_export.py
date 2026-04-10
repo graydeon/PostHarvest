@@ -15,12 +15,13 @@ def test_export_csv_shape(client):
     reader = csv.DictReader(io.StringIO(r.text))
     rows = list(reader)
     assert len(rows) >= 1
-    assert "id" in reader.fieldnames
-    assert "text" in reader.fieldnames
-    assert "author_handle" in reader.fieldnames
-    assert "tags" in reader.fieldnames
-    assert "categories" in reader.fieldnames
-    assert "media_count" in reader.fieldnames
+    fieldnames = reader.fieldnames or []
+    assert "id" in fieldnames
+    assert "text" in fieldnames
+    assert "author_handle" in fieldnames
+    assert "tags" in fieldnames
+    assert "categories" in fieldnames
+    assert "media_count" in fieldnames
 
 
 def test_export_json_shape(client):
